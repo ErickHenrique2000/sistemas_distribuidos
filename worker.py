@@ -1,6 +1,8 @@
 import asyncio
 import websockets
 import json
+import base64
+import os
 
 async def process_message(websocket, message):
     print(f"Processando mensagem: {message}")
