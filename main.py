@@ -1,6 +1,7 @@
 import asyncio
 import websockets
 import json
+import uuid
 
 socketsServer = []
 tasks = []
@@ -44,15 +45,18 @@ async def handle_connection(websocket, path):
                 socketsServer.append({'capacidade': capacidade , 'websocket': websocket, 'uso': 0})
             if data['channel'] == 'enviar-arquivo':
                 body = data['body']
-                taskId = body['id']
                 taskSize = len(body['file'])
                 findedSockets = findServer()
                 if findedSockets:
                     findedSockets[0]['uso'] = findedSockets[0]['uso'] + taskSize
                     findedSockets[1]['uso'] = findedSockets[1]['uso'] + taskSize
-                    findedSockets[0]['websocket'].send(json.dumps({"channel": "upload", "body": body}))
-                    findedSockets[1]['websocket'].send(json.dumps({"channel": "upload", "body": body}))
-                    tasks.append({'task': taskId, 'socket': websocket})
+                    myuuid = uuid.uuid4()
+                    taskId = str(myuuid)
+                    body['id'] = taskId
+                    await findedSockets[0]['websocket'].send(json.dumps({"channel": "upload", "body": body}))
+                    body['id'] = body['id'] + '-B'
+                    await findedSockets[1]['websocket'].send(json.dumps({"channel": "upload", "body": body}))
+                    tasks.append({'task': taskId, 'socket': websocket, 'pendentes': 2, 'size': taskSize})
             if data['channel'] == 'arquivo-enviado':
                 body = data['body']
                 taskId = body['id']
@@ -61,8 +65,14 @@ async def handle_connection(websocket, path):
                     if task['task'] == taskId:
                         objeto_encontrado = task
                         break
-                task['socket'].send(json.dumps({'channel': 'arquivo-enviado', 'body': ''}))
-                tasks.remove(task)
+                for sender in socketsServer:
+                    if sender['websocket'] == websocket:
+                        sender['uso'] -= task['size']
+                        break
+                if task['pendentes'] == 1:
+                    tasks.remove(task)
+                else:
+                    task['socket'].send(json.dumps({'channel': 'arquivo-enviado', 'body': ''}))
     except websockets.ConnectionClosed as e:
         socketsServer[:] = [s for s in socketsServer if s['websocket'] != websocket]
         print(f"Conexão fechada: {e}")
