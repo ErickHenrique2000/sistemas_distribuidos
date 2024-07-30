@@ -28,9 +28,10 @@ def my_periodic_task():
     while True:
         print("Executando tarefa periódica...")
         print(len(socketsServer))
+        print(socketsServer)
         for socket in socketsServer:
             mensagem = {'channel': 'teste', "body": "ola"}
-            socket['connection'].sendall(json.dumps(mensagem).encode())
+            socket['connection'].send(json.dumps(mensagem).encode())
         # Coloque aqui o código que você deseja executar a cada X segundos
         time.sleep(15)
 
@@ -42,6 +43,7 @@ def handle_connection(conn, addr):
         while True:
             data = conn.recv(1024 * 1024 * 10)
             if not data:
+                print('cai no break')
                 break
             message = data.decode()
             data = json.loads(message)
@@ -60,9 +62,13 @@ def handle_connection(conn, addr):
                     myuuid = uuid.uuid4()
                     taskId = str(myuuid)
                     body['id'] = taskId
-                    findedSockets[0]['connection'].sendall(json.dumps({"channel": "upload", "body": body}).encode())
-                    body['id'] = body['id'] + '-B'
-                    findedSockets[1]['connection'].sendall(json.dumps({"channel": "upload", "body": body}).encode())
+                    print('Enviando 1')
+                    body['backup'] = False
+                    findedSockets[0]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
+                    body['id'] = body['id']
+                    body['backup'] = True
+                    print('Enviando 2')
+                    findedSockets[1]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
                     tasks.append({'task': taskId, 'socket': conn, 'pendentes': 2, 'size': taskSize})
             if data['channel'] == 'arquivo-enviado':
                 body = data['body']
@@ -77,12 +83,19 @@ def handle_connection(conn, addr):
                         sender['uso'] -= objeto_encontrado['size']
                         break
                 if objeto_encontrado['pendentes'] == 1:
+                    print('removendo task')
                     tasks.remove(objeto_encontrado)
+                    print('task removida')
                 else:
-                    objeto_encontrado['socket'].sendall(json.dumps({'channel': 'arquivo-enviado', 'body': ''}).encode())
+                    print('Enviando 3')
+                    objeto_encontrado['socket'].send(json.dumps({'channel': 'arquivo-enviado', 'body': ''}).encode())
                     objeto_encontrado['pendentes'] = 1
+                    print('Enviado 3')
     except Exception as e:
-        socketsServer[:] = [s for s in socketsServer if s != connection]
+        # socketsServer[:] = [s for s in socketsServer if s != connection]
+        for server in socketsServer:
+            if(server['connection'] == conn):
+                socketsServer.remove(server)
         print(f"Conexão fechada: {e}")
     finally:
         conn.close()
