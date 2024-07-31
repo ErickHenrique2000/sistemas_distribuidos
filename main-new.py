@@ -8,7 +8,7 @@ socketsServer = []
 tasks = []
 
 def calcServerValue(serverSocket):
-    return serverSocket['uso'] / serverSocket['capacidade']
+    return (serverSocket['uso'] + serverSocket['arquivos']) / serverSocket['capacidade']
 
 def findServer():
     serverValues = map(calcServerValue, socketsServer)
@@ -32,7 +32,6 @@ def my_periodic_task():
         for socket in socketsServer:
             mensagem = {'channel': 'teste', "body": "ola"}
             socket['connection'].send(json.dumps(mensagem).encode())
-        # Coloque aqui o código que você deseja executar a cada X segundos
         time.sleep(15)
 
 def handle_connection(conn, addr):
@@ -51,6 +50,7 @@ def handle_connection(conn, addr):
             if data['channel'] == 'inscrever-servidor':
                 capacidade = data['body']['capacidade']
                 connection['capacidade'] = capacidade
+                connection['arquivos'] = 0
                 socketsServer.append(connection)
             if data['channel'] == 'enviar-arquivo':
                 body = data['body']
@@ -58,7 +58,9 @@ def handle_connection(conn, addr):
                 findedSockets = findServer()
                 if findedSockets:
                     findedSockets[0]['uso'] = findedSockets[0]['uso'] + taskSize
+                    findedSockets[0]['arquivos'] = findedSockets[0]['arquivos'] + 1
                     findedSockets[1]['uso'] = findedSockets[1]['uso'] + taskSize
+                    findedSockets[1]['arquivos'] = findedSockets[1]['arquivos'] + 1
                     myuuid = uuid.uuid4()
                     taskId = str(myuuid)
                     body['id'] = taskId
@@ -92,7 +94,6 @@ def handle_connection(conn, addr):
                     objeto_encontrado['pendentes'] = 1
                     print('Enviado 3')
     except Exception as e:
-        # socketsServer[:] = [s for s in socketsServer if s != connection]
         for server in socketsServer:
             if(server['connection'] == conn):
                 socketsServer.remove(server)
