@@ -26,27 +26,38 @@ def findServer():
     return [socketsServer[menor1_idx], socketsServer[menor2_idx]]
 
 def my_periodic_task():
-    while True:
-        print("Executando tarefa periódica...")
-        print(len(socketsServer))
-        print(socketsServer)
-        for socket in socketsServer:
-            mensagem = {'channel': 'teste', "body": "ola"}
-            socket['connection'].send(json.dumps(mensagem).encode())
-        time.sleep(15)
+    print("Executando tarefa periódica...")
+    #while True:
+        #print("Executando tarefa periódica...")
+        #print(len(socketsServer))
+        #print(socketsServer)
+        #for socket in socketsServer:
+        #    mensagem = {'channel': 'teste', "body": "ola"}
+        #    socket['connection'].send(json.dumps(mensagem).encode())
+        #time.sleep(15)
 
 def handle_connection(conn, addr):
     print(f"Conexão estabelecida com {addr}")
     connection = {'connection': conn, 'uso': 0, 'capacidade': 0}
 
     try:
+        message_size = 1024 * 1024 * 10
         while True:
-            message_size = 1024 * 1024 * 10
+            print("Esperando mensagem de até: ", message_size)
             data = conn.recv(message_size)
             if not data:
                 print('cai no break')
                 break
             message = data.decode()
+            while True:
+            	try:
+            	   json.loads(message)
+            	   break; 
+            	except Exception as e:
+                    print("Concatenando mensagem")
+                    data = conn.recv(message_size)
+                    message += data.decode()
+            print("Data recebida: ", message)
             data = json.loads(message)
             print("Mensagem recebida como objeto:", data)
             if data['channel'] == 'inscrever-servidor':
@@ -57,6 +68,7 @@ def handle_connection(conn, addr):
             if data['channel'] == 'set-lenght':
                 body = data['body']
                 message_size = body['req_size']
+                conn.send(json.dumps({"channel": "result", "body": {"status": "OK"}}).encode())
             if data['channel'] == 'enviar-arquivo':
                 body = data['body']
                 taskSize = len(body['file'])
@@ -69,16 +81,20 @@ def handle_connection(conn, addr):
                     myuuid = uuid.uuid4()
                     taskId = str(myuuid)
                     body['id'] = taskId
+                    tasks.append({'task': taskId, 'socket': conn, 'pendentes': 2, 'size': taskSize})
                     print('Enviando 1')
                     body['backup'] = False
-                    findedSockets[0]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
+                    print('Iniciando send')
+                    #findedSockets[0]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
+                    #resp = findedSockets[0]['connection'].recv(1024)
                     findedSockets[0]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
                     body['id'] = body['id']
                     body['backup'] = True
                     print('Enviando 2')
-                    findedSockets[1]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
+                    #findedSockets[1]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
+                    #resp = findedSockets[1]['connection'].recv(1024)
                     findedSockets[1]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
-                    tasks.append({'task': taskId, 'socket': conn, 'pendentes': 2, 'size': taskSize})
+                    print('Envios finalizados')
             if data['channel'] == 'arquivo-enviado':
                 body = data['body']
                 taskId = body['id']

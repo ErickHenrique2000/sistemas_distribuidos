@@ -42,11 +42,19 @@ async def connect_to_server():
     mensagem = {"body": {"capacidade": 5}, "channel": "inscrever-servidor"}
     client_socket.send(json.dumps(mensagem).encode('utf-8'))
     
+    message_size = 1024 * 1024 * 10
     while True:
-        message_size = 1024 * 1024 * 10
         message = client_socket.recv(message_size).decode('utf-8')
         if not message:
             client_socket.close()
+        while True:
+            try:
+                json.loads(message)
+                break; 
+            except Exception as e:
+                print("Concatenando mensagem")
+                data = client_socket.recv(message_size)
+                message += data.decode()
         print(f"Processando mensagem: {message}")
         data = json.loads(message)
         if data['channel'] == 'teste':
@@ -54,6 +62,7 @@ async def connect_to_server():
         if data['channel'] == 'set-lenght':
             body = data['body']
             message_size = body['req_size']
+            client_socket.send(json.dumps({"channel": "result", "body": {"status": "OK"}}).encode())
         if data['channel'] == 'upload':
             body = data['body']
             task_id = body['id']
