@@ -2,6 +2,7 @@ import base64
 import socket
 import json
 import os
+import sys
 
 def find_file(name_part):
     print(os.listdir('.'))
@@ -38,7 +39,7 @@ DIGITE O NOME DO ARQUIVO OU -1 PARA SAIR
                         "channel": "enviar-arquivo"
                     }
                     mensagem_json = json.dumps(mensagem)
-                    
+                    s.send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(mensagem_json.encode()) + 1024}}).encode())
                     s.sendall(mensagem_json.encode())
                     
                     data = s.recv(1024)

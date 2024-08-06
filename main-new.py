@@ -3,6 +3,7 @@ import threading
 import json
 import uuid
 import time
+import sys
 
 socketsServer = []
 tasks = []
@@ -40,7 +41,8 @@ def handle_connection(conn, addr):
 
     try:
         while True:
-            data = conn.recv(1024 * 1024 * 10)
+            message_size = 1024 * 1024 * 10
+            data = conn.recv(message_size)
             if not data:
                 print('cai no break')
                 break
@@ -52,6 +54,9 @@ def handle_connection(conn, addr):
                 connection['capacidade'] = capacidade
                 connection['arquivos'] = 0
                 socketsServer.append(connection)
+            if data['channel'] == 'set-lenght':
+                body = data['body']
+                message_size = body['req_size']
             if data['channel'] == 'enviar-arquivo':
                 body = data['body']
                 taskSize = len(body['file'])
@@ -66,10 +71,12 @@ def handle_connection(conn, addr):
                     body['id'] = taskId
                     print('Enviando 1')
                     body['backup'] = False
+                    findedSockets[0]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
                     findedSockets[0]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
                     body['id'] = body['id']
                     body['backup'] = True
                     print('Enviando 2')
+                    findedSockets[1]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
                     findedSockets[1]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
                     tasks.append({'task': taskId, 'socket': conn, 'pendentes': 2, 'size': taskSize})
             if data['channel'] == 'arquivo-enviado':
