@@ -25,17 +25,6 @@ def findServer():
     
     return [socketsServer[menor1_idx], socketsServer[menor2_idx]]
 
-def my_periodic_task():
-    print("Executando tarefa periódica...")
-    #while True:
-        #print("Executando tarefa periódica...")
-        #print(len(socketsServer))
-        #print(socketsServer)
-        #for socket in socketsServer:
-        #    mensagem = {'channel': 'teste', "body": "ola"}
-        #    socket['connection'].send(json.dumps(mensagem).encode())
-        #time.sleep(15)
-
 def handle_connection(conn, addr):
     print(f"Conexão estabelecida com {addr}")
     connection = {'connection': conn, 'uso': 0, 'capacidade': 0}
@@ -46,7 +35,6 @@ def handle_connection(conn, addr):
             print("Esperando mensagem de até: ", message_size)
             data = conn.recv(message_size)
             if not data:
-                print('cai no break')
                 break
             message = data.decode()
             while True:
@@ -60,14 +48,14 @@ def handle_connection(conn, addr):
             print("Data recebida: ", message)
             data = json.loads(message)
             print("Mensagem recebida como objeto:", data)
+            if data['channel'] == 'set-lenght':
+                body = data['body']
+                message_size = body['req_size']
             if data['channel'] == 'inscrever-servidor':
                 capacidade = data['body']['capacidade']
                 connection['capacidade'] = capacidade
                 connection['arquivos'] = 0
                 socketsServer.append(connection)
-            if data['channel'] == 'set-lenght':
-                body = data['body']
-                message_size = body['req_size']
                 conn.send(json.dumps({"channel": "result", "body": {"status": "OK"}}).encode())
             if data['channel'] == 'enviar-arquivo':
                 body = data['body']
@@ -85,14 +73,10 @@ def handle_connection(conn, addr):
                     print('Enviando 1')
                     body['backup'] = False
                     print('Iniciando send')
-                    #findedSockets[0]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
-                    #resp = findedSockets[0]['connection'].recv(1024)
                     findedSockets[0]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
                     body['id'] = body['id']
                     body['backup'] = True
                     print('Enviando 2')
-                    #findedSockets[1]['connection'].send(json.dumps({"channel": "set-lenght", "body": {"req_size": sys.getsizeof(json.dumps({"channel": "upload", "body": body}).encode()) + 1024}}).encode())
-                    #resp = findedSockets[1]['connection'].recv(1024)
                     findedSockets[1]['connection'].send(json.dumps({"channel": "upload", "body": body}).encode())
                     print('Envios finalizados')
             if data['channel'] == 'arquivo-enviado':
@@ -112,10 +96,8 @@ def handle_connection(conn, addr):
                     tasks.remove(objeto_encontrado)
                     print('task removida')
                 else:
-                    print('Enviando 3')
                     objeto_encontrado['socket'].send(json.dumps({'channel': 'arquivo-enviado', 'body': ''}).encode())
                     objeto_encontrado['pendentes'] = 1
-                    print('Enviado 3')
     except Exception as e:
         for server in socketsServer:
             if(server['connection'] == conn):
@@ -129,8 +111,6 @@ def main():
     server.bind(('localhost', 8765))
     server.listen(5)
     print("Servidor socket iniciado na porta 8765")
-
-    threading.Thread(target=my_periodic_task, daemon=True).start()
 
     while True:
         conn, addr = server.accept()
